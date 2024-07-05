@@ -105,7 +105,7 @@ int read_msg(int sock, char* buffer, ssize_t buf_size) {
         total_bytes_read += bytes_read;
     }
     
-    buffer[total_bytes_read - 1] = '\0';
+    buffer[total_bytes_read] = '\0';
     
     /* ======= */
     
