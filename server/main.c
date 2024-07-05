@@ -11,7 +11,7 @@ int main(int argc, char** argv) {
     uint16_t port;
     
     /* The network address that a server needs to be bound to */
-    struct sockaddr_in server_address;
+    struct sockaddr_in6 server_address;
     
     const char* msg = "The server just said \"Hey!\"";
     
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
     /* ============= Create an endpoint for communication ============= */
     /* ================================================================ */
     
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    if ((sock = socket(AF_INET6, SOCK_STREAM, 0)) == -1) {
         fprintf(stderr, "socket() failed - %s\n", strerror(errno));
         
         /* ======== */
@@ -49,10 +49,10 @@ int main(int argc, char** argv) {
     
     memset(&server_address, 0, sizeof(server_address));
     
-    server_address.sin_family = AF_INET;
+    server_address.sin6_family = AF_INET6;
     /* Bind to all interfaces available */
-    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
-    server_address.sin_port = htons(port);
+    server_address.sin6_addr = in6addr_any;
+    server_address.sin6_port = htons(port);
     
     /* ================================================================ */
     /* ================== Bind to the local address =================== */
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
     /* ================================================================ */
     
     for (; ;) {
-        struct sockaddr_in client_address;
+        struct sockaddr_in6 client_address;
         socklen_t client_len = sizeof(client_address);
         
         /* ================================================= */
@@ -105,12 +105,12 @@ int main(int argc, char** argv) {
         /* ====== Output the connected client address ====== */
         /* ================================================= */
         
-        char client_name[INET_ADDRSTRLEN];
+        char client_name[INET6_ADDRSTRLEN];
         
         /* Convert IPv4 (and IPv6) addresses from binary to text
        form */
-        if (inet_ntop(server_address.sin_family, &client_address.sin_addr.s_addr, client_name, sizeof(client_name)) != NULL) {
-            fprintf(stdout, "Handling a client %s:%d\n", client_name, ntohs(client_address.sin_port));
+        if (inet_ntop(server_address.sin6_family, &client_address.sin6_addr.s6_addr, client_name, sizeof(client_name)) != NULL) {
+            fprintf(stdout, "Handling a client %s:%d\n", client_name, ntohs(client_address.sin6_port));
         }
         else {
             fprintf(stdout, "Unable to get a client name\n");

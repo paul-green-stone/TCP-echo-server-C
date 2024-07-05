@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
     char buffer[BUFSIZ];
     
     /* A server address to connect to */
-    struct sockaddr_in server_address;
+    struct sockaddr_in6 server_address;
     
     /* ================ */
     
@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
     /* ============= Create an endpoint for communication ============= */
     /* ================================================================ */
     
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+    if ((sock = socket(AF_INET6, SOCK_STREAM, 0)) == -1) {
         fprintf(stderr, "socket() failed - %s\n", strerror(errno));
         
         /* ======== */
@@ -55,11 +55,11 @@ int main(int argc, char** argv) {
     
     memset(&server_address, 0, sizeof(server_address));
     
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(server_port);
+    server_address.sin6_family = AF_INET6;
+    server_address.sin6_port = htons(server_port);
     
     /* Convert IPv4 (and IPv6) addresses from text to binary form */
-    op_status = inet_pton(server_address.sin_family, server_IP_address, &server_address.sin_addr.s_addr);
+    op_status = inet_pton(server_address.sin6_family, server_IP_address, &server_address.sin6_addr.s6_addr);
     
     if (op_status == 0) {
         fprintf(stderr, "inet_pton() failed - invalid address string\n");
