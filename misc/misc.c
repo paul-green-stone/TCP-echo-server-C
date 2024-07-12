@@ -12,6 +12,8 @@ int write_msg(int sock, const char* msg) {
     ssize_t bytes_written;
     ssize_t total_bytes_written = 0;
     
+    /* ================ */
+    
     /* ================================================ */
     /* ============ Send a length prefix  ============= */
     /* ================================================ */
@@ -60,6 +62,8 @@ int read_msg(int sock, char* buffer, ssize_t buf_size) {
     
     uint32_t net_len;
     uint32_t host_len;
+    
+    /* ================ */
     
     /* ================================================ */
     /* ============ Read a length prefix  ============= */
@@ -113,3 +117,71 @@ int read_msg(int sock, char* buffer, ssize_t buf_size) {
 }
 
 /* ================================================================ */
+
+void print_socket_address(const struct sockaddr* address, FILE* stream) {
+    
+    /* A pointer to binary address */
+    void* numeric_address;
+    /* Port to print */
+    in_port_t port;
+    
+    /* A buffer to contain result (IPv6 sufficient to hold IPv4) */
+    char buffer[INET6_ADDRSTRLEN];
+    
+    /* ================ */
+    
+    if (address == NULL) {
+        fprintf(stderr, "%s() failed - missing address\n", __func__);
+        
+        /* ======== */
+        return ;
+    }
+    
+    /* ================================================================ */
+    /* ======== Set pointer to address based on address family ======== */
+    /* ================================================================ */
+    
+    switch (address->sa_family) {
+            
+        case AF_INET:
+            numeric_address = &((struct sockaddr_in*) address)->sin_addr;
+            port = ntohs(((struct sockaddr_in*) address)->sin_port);
+            
+            break ;
+            
+        /* ================ */
+            
+        case AF_INET6:
+            numeric_address = &((struct sockaddr_in6*) address)->sin6_addr;
+            port = ntohs(((struct sockaddr_in6*) address)->sin6_port);
+            
+            break ;
+            
+        /* ================ */
+            
+        default:
+            fprintf(stream == NULL ? stdout : stream, "[unknown type]");
+            
+            return ;
+    }
+
+    /* ================================================================ */
+    /* ============= Convert binary to printable address ============== */
+    /* ================================================================ */
+    
+    if (inet_ntop(address->sa_family, numeric_address, buffer, sizeof(buffer)) == NULL) {
+        fprintf(stderr, "[Invalid address]\n");
+    }
+    else {
+        fprintf(stream == NULL ? stdout : stream, "%s", buffer);
+        
+        if (port != 0) {
+            fprintf(stream == NULL ? stdout : stream, ":%u", port);
+        }
+        
+        fprintf(stream == NULL ? stdout : stream, "\n");
+    }
+}
+    
+/* ================================================================ */
+    

@@ -6,12 +6,15 @@
 
 int main(int argc, char** argv) {
     
+    /* operation status/return value */
+    int op_status;
+    
     int sock;
     
-    uint16_t port;
+    char* service;
     
-    /* The network address that a server needs to be bound to */
-    struct sockaddr_in server_address;
+    struct addrinfo hints;
+    struct addrinfo* server_address;
     
     const char* msg = "The server just said \"Hey!\"";
     
@@ -30,55 +33,92 @@ int main(int argc, char** argv) {
         return EXIT_SUCCESS;
     }
     
-    port = atoi(argv[1]);
+    service = argv[1];
     
     /* ================================================================ */
-    /* ============= Create an endpoint for communication ============= */
+    /* =========== Construct the server address structure ============= */
     /* ================================================================ */
     
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        fprintf(stderr, "socket() failed - %s\n", strerror(errno));
+    memset(&hints, 0, sizeof(hints));
+    
+    /* Any address family */
+    hints.ai_family = AF_UNSPEC;
+    /* Accept on any address/port */
+    hints.ai_flags = AI_PASSIVE;
+    /* Only stream sockets */
+    hints.ai_socktype = SOCK_STREAM;
+    /* Only TCP protocol */
+    hints.ai_protocol = IPPROTO_TCP;
+    
+    if ((op_status = getaddrinfo(NULL, service, &hints, &server_address)) != 0) {
+        fprintf(stderr, "getaddrinfo() failed - %s\n", gai_strerror(op_status));
         
         /* ======== */
         return EXIT_FAILURE;
     }
     
-    /* ================================================================ */
-    /* ============== Construct local address structure =============== */
-    /* ================================================================ */
-    
-    memset(&server_address, 0, sizeof(server_address));
-    
-    server_address.sin_family = AF_INET;
-    /* Bind to all interfaces available */
-    server_address.sin_addr.s_addr = htonl(INADDR_ANY);
-    server_address.sin_port = htons(port);
-    
-    /* ================================================================ */
-    /* ================== Bind to the local address =================== */
-    /* ================================================================ */
-    
-    if (bind(sock, (struct sockaddr*) &server_address, sizeof(server_address)) == -1) {
-        fprintf(stderr, "bind() failed - %s\n", strerror(errno));
+    for (struct addrinfo* address = server_address; address != NULL; address = address->ai_next) {
         
-        close(sock);
+        /* ================================================================ */
+        /* ============= Create an endpoint for communication ============= */
+        /* ================================================================ */
+    
+        if ((sock = socket(address->ai_family, address->ai_socktype, address->ai_protocol)) == -1) {
+            fprintf(stderr, "socket() failed - %s\n", strerror(errno));
+
+            /* ======== */
+            continue ;
+        }
         
-        /* ======== */
-        return EXIT_FAILURE;
+        /* ================================================================ */
+        /* ================== Bind to the local address =================== */
+        /* ================================================================ */
+        
+        if (bind(sock, address->ai_addr, address->ai_addrlen) == -1) {
+            fprintf(stderr, "bind() failed - %s\n", strerror(errno));
+
+            close(sock);
+
+            /* ======== */
+            continue ;
+        }
+        
+        /* ================================================================ */
+        /* ============== Listen for connections on a socket ============== */
+        /* ================================================================ */
+
+        if (listen(sock, MAXPENDING) == -1) {
+            fprintf(stderr, "listen() failed - %s\n", strerror(errno));
+
+            close(sock);
+
+            /* ======== */
+            continue ;
+        }
+        
+        /* ================================================================ */
+        /* ================ Print local address of socket ================= */
+        /* ================================================================ */
+        
+        struct sockaddr_storage local_address;
+        socklen_t address_size = sizeof(local_address);
+        
+        if (getsockname(sock, (struct sockaddr*) &local_address, &address_size) < 0) {
+            fprintf(stderr, "getsockname() failed - %s\n", strerror(errno));
+            
+            freeaddrinfo(server_address);
+            
+            /* ======== */
+            return EXIT_FAILURE;
+        }
+        
+        fprintf(stdout, "Binding to ");
+        print_socket_address((struct sockaddr*) &local_address, stdout);
+        
+        break ;
     }
     
-    /* ================================================================ */
-    /* ============== Listen for connections on a socket ============== */
-    /* ================================================================ */
-    
-    if (listen(sock, MAXPENDING) == -1) {
-        fprintf(stderr, "listen() failed - %s\n", strerror(errno));
-        
-        close(sock);
-        
-        /* ======== */
-        return EXIT_FAILURE;
-    }
+    freeaddrinfo(server_address);
     
     /* ================================================================ */
     /* ======================== Run the server ======================== */
@@ -105,20 +145,9 @@ int main(int argc, char** argv) {
         /* ====== Output the connected client address ====== */
         /* ================================================= */
         
-        char client_name[INET_ADDRSTRLEN];
+        fprintf(stdout, "Handling a client :");
         
-        /* Convert IPv4 (and IPv6) addresses from binary to text
-       form */
-        if (inet_ntop(server_address.sin_family, &client_address.sin_addr.s_addr, client_name, sizeof(client_name)) != NULL) {
-            fprintf(stdout, "Handling a client %s:%d\n", client_name, ntohs(client_address.sin_port));
-        }
-        else {
-            fprintf(stdout, "Unable to get a client name\n");
-        }
-        
-        /* ================================================= */
-        /* =============== Handle the client =============== */
-        /* ================================================= */
+        print_socket_address((struct sockaddr*) &client_address, stdout);
         
         /* ================================================= */
         /* =========== Send the greeting message =========== */

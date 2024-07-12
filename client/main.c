@@ -6,20 +6,23 @@
 
 int main(int argc, char** argv) {
     
-    int sock;
+    int sock = -1;
     
     /* operation status/return value */
     int op_status;
     
-    char* server_IP_address;
-    uint16_t server_port;
+    char* host;
+    char* service;
     
     char* echo_string;
     
     char buffer[BUFSIZ];
     
+    struct addrinfo hints;
     /* A server address to connect to */
-    struct sockaddr_in server_address;
+    struct addrinfo* server_address;
+    
+    char name_buffer[128];
     
     /* ================ */
     
@@ -34,61 +37,78 @@ int main(int argc, char** argv) {
         return EXIT_SUCCESS;
     }
     
-    server_IP_address = argv[1];
+    /* server address/name */
+    host = argv[1];
+    /* string to echo */ 
     echo_string = argv[2];
-    server_port = (argc == 4) ? atoi(argv[3]) : ECHO_PORT;
+    /* (optional): server port/service */
+    service = (argc == 4) ? argv[3] : "echo";
     
     /* ================================================================ */
-    /* ============= Create an endpoint for communication ============= */
+    /* ===== Tell the system what kind(s) of address info we want ===== */
     /* ================================================================ */
     
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        fprintf(stderr, "socket() failed - %s\n", strerror(errno));
+    memset(&hints, 0, sizeof(hints));
+    
+    /* v4 or v6 is OK */
+    hints.ai_family = AF_UNSPEC;
+    /* Only streaming sockets */
+    hints.ai_socktype = SOCK_STREAM;
+    /* Only TCP protocol */
+    hints.ai_protocol = IPPROTO_TCP;
+    
+    /* ================================================================ */
+    /* ======================= Get address(es) ======================== */
+    /* ================================================================ */
+    
+    if ((op_status = getaddrinfo(host, service, &hints, &server_address)) != 0) {
+        fprintf(stderr, "getaddrinfo() failed - %s\n", gai_strerror(op_status));
         
         /* ======== */
         return EXIT_FAILURE;
     }
     
-    /* ================================================================ */
-    /* ============ Construct the server address structure ============ */
-    /* ================================================================ */
-    
-    memset(&server_address, 0, sizeof(server_address));
-    
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(server_port);
-    
-    /* Convert IPv4 (and IPv6) addresses from text to binary form */
-    op_status = inet_pton(server_address.sin_family, server_IP_address, &server_address.sin_addr.s_addr);
-    
-    if (op_status == 0) {
-        fprintf(stderr, "inet_pton() failed - invalid address string\n");
+    for (struct addrinfo* address = server_address; address != NULL; address = address->ai_next) {
         
-        close(sock);
+        /* ================================================================ */
+        /* ============= Create an endpoint for communication ============= */
+        /* ================================================================ */
         
-        /* ======== */
-        return EXIT_FAILURE;
+        if ((sock = socket(address->ai_family, address->ai_socktype, address->ai_protocol)) == -1) {
+            fprintf(stderr, "socket() failed - %s\n", strerror(errno));
+
+            /* ======== */
+            continue ;
+        }
+        
+        /* ================================================================ */
+        /* ============ Establish the connection to the server ============ */
+        /* ================================================================ */
+        
+        if (connect(sock, address->ai_addr, address->ai_addrlen) == -1) {
+            fprintf(stderr, "connect() failed - %s\n", strerror(errno));
+
+            close(sock);
+
+            /* ======== */
+            return EXIT_FAILURE;
+        }
+        
+        /* Socket connection succeeded; break and return socket */
+        break ;    
     }
-    else if (op_status == -1) {
-        fprintf(stderr, "inet_pton() failed - %s\n", strerror(errno));
-        
-        close(sock);
-        
-        /* ======== */
-        return EXIT_FAILURE;
+    
+    freeaddrinfo(server_address);
+    
+    /* ================================================================ */
+    /* ============= Just for fun. Getting the host name ============== */
+    /* ================================================================ */
+    
+    if (gethostname(name_buffer, 128) != 0) {
+        fprintf(stderr, "gethostname() failed - %s\n", strerror(errno));
     }
-    
-    /* ================================================================ */
-    /* ============ Establish the connection to the server ============ */
-    /* ================================================================ */
-    
-    if (connect(sock, (struct sockaddr*) &server_address, sizeof(server_address)) == -1) {
-        fprintf(stderr, "connect() failed - %s\n", strerror(errno));
-        
-        close(sock);
-        
-        /* ======== */
-        return EXIT_FAILURE;
+    else {
+        fprintf(stdout, "I'm %s\n", name_buffer);
     }
     
     /* ================================================================ */
