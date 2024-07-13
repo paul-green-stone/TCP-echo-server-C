@@ -1,6 +1,6 @@
 # Of Names and Address Families
 
-## Mapping Names to Nnmbers
+## Mapping Names to Numbers
 
 A host's Internet address is tied to the part of the network to which it is connected.
 
